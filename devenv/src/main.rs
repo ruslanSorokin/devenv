@@ -133,6 +133,7 @@ struct BackendOptions {
     devenv: devenv::DevenvOptions,
     command: Commands,
     verbosity: VerbosityLevel,
+    show_status_line: bool,
     use_pty: bool,
     nix_debugger: bool,
     strict_ports: bool,
@@ -282,6 +283,9 @@ fn resolve(cli: Cli, shutdown: Arc<Shutdown>) -> Result<(UiOptions, BackendOptio
     // UI options: verbosity, log level, tracing, TUI. Pure CLI + env, no config.
     let verbosity = resolve_verbosity(&cli.cli_options);
     let quiet = matches!(verbosity, VerbosityLevel::Quiet);
+    let show_status_line =
+        devenv_core::settings::flag(cli.cli_options.status_line, cli.cli_options.no_status_line)
+            .unwrap_or(true);
     let log_level = match verbosity {
         VerbosityLevel::Verbose => devenv_tracing::Level::Debug,
         VerbosityLevel::Quiet => devenv_tracing::Level::Warn,
@@ -414,6 +418,7 @@ fn resolve(cli: Cli, shutdown: Arc<Shutdown>) -> Result<(UiOptions, BackendOptio
         command,
         verbosity,
         use_pty,
+        show_status_line,
         nix_debugger,
         strict_ports,
         test_dirs,
@@ -655,6 +660,7 @@ async fn run_backend(
         command,
         verbosity,
         use_pty,
+        show_status_line,
         nix_debugger,
         strict_ports: config_strict_ports,
         // Held until the backend run completes; `Drop` removes the temp dirs.
@@ -688,6 +694,7 @@ async fn run_backend(
             initial_env_script,
             bash_path,
             clean,
+            show_status_line,
             shell,
             dotfile,
             task_exports,
@@ -1089,6 +1096,7 @@ struct ReloadShellArgs {
     initial_env_script: String,
     bash_path: String,
     clean: devenv_core::config::Clean,
+    show_status_line: bool,
     shell: String,
     dotfile: std::path::PathBuf,
     task_exports: BTreeMap<String, String>,
@@ -1119,6 +1127,7 @@ async fn run_reload_shell(args: ReloadShellArgs) -> Result<Option<u32>> {
         initial_env_script,
         bash_path,
         clean,
+        show_status_line,
         shell,
         dotfile,
         task_exports,
@@ -1160,7 +1169,7 @@ async fn run_reload_shell(args: ReloadShellArgs) -> Result<Option<u32>> {
     });
 
     let shell_session = ShellSession::with_defaults()
-        .with_status_line(is_interactive)
+        .with_status_line(show_status_line && is_interactive)
         .with_shutdown_token(shutdown.cancellation_token());
     let session_result = shell_session
         .run(command_rx, event_tx, handoff, SessionIo::default())
