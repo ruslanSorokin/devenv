@@ -164,6 +164,7 @@ struct RunContext {
     input_overrides: InputOverrides,
     from_external: bool,
     verbosity: devenv::tasks::VerbosityLevel,
+    show_status_line: bool,
     tui: bool,
     use_pty: bool,
     nix_debugger: bool,
@@ -297,6 +298,12 @@ impl RunContext {
                     is_tty && !is_ci && !ai_agent
                 });
 
+        let show_status_line = devenv_core::settings::flag(
+            cli.cli_options.status_line,
+            cli.cli_options.no_status_line,
+        )
+        .unwrap_or(true);
+
         // Some commands don't support the TUI regardless of user options
         let tui_unsupported = matches!(
             &command,
@@ -329,6 +336,7 @@ impl RunContext {
             input_overrides,
             from_external,
             verbosity,
+            show_status_line,
             tui,
             use_pty,
             nix_debugger,
@@ -594,6 +602,7 @@ async fn run_backend(
         use_pty,
         nix_debugger,
         is_testing,
+        show_status_line,
         ..
     } = ctx;
 
@@ -720,6 +729,7 @@ async fn run_backend(
             backend_done_guard.take(),
             terminal_ready_rx,
             verbosity,
+            show_status_line,
         )
         .await
         .map(|exit_code| match exit_code {
@@ -1128,6 +1138,7 @@ async fn run_reload_shell(
     backend_done: Arc<tokio::sync::Notify>,
     terminal_ready_rx: Option<tokio::sync::oneshot::Receiver<u16>>,
     verbosity: devenv::tasks::VerbosityLevel,
+    show_status_line: bool,
 ) -> Result<Option<u32>> {
     use devenv_reload::{Config as ReloadConfig, ShellCoordinator};
     use devenv_tui::{SessionIo, ShellSession, TuiHandoff};
@@ -1209,7 +1220,8 @@ async fn run_reload_shell(
     });
 
     // Run shell session on current thread (owns terminal)
-    let shell_session = ShellSession::with_defaults().with_status_line(is_interactive);
+    let shell_session =
+        ShellSession::with_defaults().with_status_line(show_status_line && is_interactive);
     let exit_code = shell_session
         .run(command_rx, event_tx, handoff, SessionIo::default())
         .await

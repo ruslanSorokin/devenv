@@ -524,6 +524,18 @@ pub struct CliOptions {
     )]
     pub no_tui: bool,
 
+    #[arg(
+        long,
+        global = true,
+        env = "DEVENV_STATUS_LINE",
+        value_parser = clap::builder::BoolishValueParser::new(),
+        help = "Enable the interactive status line (default when interactive)."
+    )]
+    pub status_line: Option<bool>,
+
+    #[arg(long, global = true, help = "Disable the interactive status line.")]
+    pub no_status_line: bool,
+
     #[arg(short, long, action = clap::ArgAction::Help, global = true, help = "Print help (see a summary with '-h')")]
     pub help: Option<bool>,
 }
